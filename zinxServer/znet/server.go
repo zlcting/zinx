@@ -1,4 +1,4 @@
-package zent
+package znet
 
 import (
 	"fmt"
@@ -23,15 +23,17 @@ func (s *Server) Start() {
 	fmt.Printf("[start] server listenner at IP :%s port:%d is starting\n", s.IP, s.Port)
 
 	go func() {
+		//1.获取一个tcpadd
 		addr, err := net.ResolveTCPAddr(s.IPversion, fmt.Sprintf("%s:%d", s.IP, s.Port))
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("resolve tcp addr err: ", err)
 			return
 		}
 
 		listenner, err := net.ListenTCP(s.IPversion, addr)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("listen", s.IPversion, "err", err)
+			return
 		}
 
 		fmt.Println("start zinx server succ", s.Name, "succ listennting....")
@@ -39,7 +41,7 @@ func (s *Server) Start() {
 		for {
 			conn, err := listenner.AcceptTCP()
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("Accept err ", err)
 				continue
 			}
 			//已经与客户端链接
@@ -48,7 +50,7 @@ func (s *Server) Start() {
 					buf := make([]byte, 512)
 					cnt, err := conn.Read(buf)
 					if err != nil {
-						fmt.Println(err)
+						fmt.Println("recv buf err ", err)
 						continue
 					}
 					//回显功能
@@ -65,6 +67,7 @@ func (s *Server) Start() {
 
 //Stop is server Stop function
 func (s *Server) Stop() {
+	fmt.Println("[STOP] Zinx server , name ", s.Name)
 	//todo 将一些服务器的资源、状态或者一些已经开辟的链接信息进行停止或者回收
 }
 
