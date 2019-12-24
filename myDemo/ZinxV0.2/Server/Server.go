@@ -1,8 +1,8 @@
 package main
 
-import zent "zinx/zinxServer/znet"
+import "zinx/zinxServer/znet"
 
 func main() {
-	s := zent.NewServer("[zinx v0.2]")
+	s := znet.NewServer("[zinx v0.2]")
 	s.Serve()
 }
