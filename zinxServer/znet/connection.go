@@ -4,6 +4,8 @@ import "net"
 import "zinx/zinxServer/ziface"
 import "fmt"
 
+import "zinx/zinxServer/utils"
+
 //Connection 链接模块
 type Connection struct {
 	//当前链接的socket tcp 套接字
@@ -43,7 +45,7 @@ func (c *Connection) StartReader() {
 
 	for {
 		//读取客户端的数据到buf中
-		buf := make([]byte, 512)
+		buf := make([]byte, utils.GlobalObject.MaxPacketSize)
 		_, err := c.Conn.Read(buf)
 		if err != nil {
 			fmt.Println("recv buf err", err)
