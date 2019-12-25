@@ -1,15 +1,12 @@
 package main
 
-import (
-	"fmt"
-	"net"
-	"os"
-	"time"
-)
+import "fmt"
+
+import "time"
+
+import "net"
 
 func main() {
-
-	fmt.Println(os.Getwd())
 	fmt.Println("client start")
 	//1 直接链接远程服务器 得到一个链接
 	time.Sleep(1 * time.Second)
@@ -21,7 +18,7 @@ func main() {
 	}
 
 	for {
-		_, err := conn.Write([]byte("hello Zinx"))
+		_, err := conn.Write([]byte("hello Zinxv0.2"))
 		if err != nil {
 			fmt.Println(err)
 		}
