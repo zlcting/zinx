@@ -21,6 +21,8 @@ type Server struct {
 	//Router ziface.IRouter
 	//当前server的消息管理模块 用来绑定msgid和对应的处理业务api关系
 	MsgHandler ziface.IMsgHandler
+	//该server的连接管理器
+	ConnMr ziface.IConnManager
 }
 
 //Start is server start function
@@ -55,8 +57,16 @@ func (s *Server) Start() {
 				fmt.Println("Accept err ", err)
 				continue
 			}
+			//设置最大链接个数的判断，如果超过最大链接，那么则关闭此新的链接
+			if s.ConnMr.Len() >= utils.GlobalObject.MaxConn {
+				//todo 给客户端响应一个超出最大链接的错误包
+				fmt.Println("too manty connections maxconn = ", utils.GlobalObject.MaxConn)
+				conn.Close()
+				continue
+			}
+
 			//将处理新的链接的业务方法和conn进行绑定 得到我们的链接模块
-			dealConn := NewConnection(conn, cid, s.MsgHandler)
+			dealConn := NewConnection(s, conn, cid, s.MsgHandler)
 			cid++
 
 			//启动 当前的链接业务处理
@@ -70,6 +80,8 @@ func (s *Server) Start() {
 func (s *Server) Stop() {
 	fmt.Println("[STOP] Zinx server , name ", s.Name)
 	//todo 将一些服务器的资源、状态或者一些已经开辟的链接信息进行停止或者回收
+	fmt.Println("[stop server name]", s.Name)
+	s.ConnMr.ClearConn()
 }
 
 //Serve is server res function
@@ -100,7 +112,13 @@ func NewServer(name string) ziface.IServer {
 		Port:      utils.GlobalObject.TcpPort,
 		//Router:    nil,
 		MsgHandler: NewMsgHandle(),
+		ConnMr:     NewConnManager(),
 	}
 
 	return s
+}
+
+//GetConnMr 获取链接管理句柄
+func (s *Server) GetConnMr() ziface.IConnManager {
+	return s.ConnMr
 }
