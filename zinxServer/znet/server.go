@@ -30,6 +30,9 @@ func (s *Server) Start() {
 	fmt.Printf("[start] server listenner at IP :%s port:%d is starting\n", s.IP, s.Port)
 
 	go func() {
+		//开启消息队列及worker工作池
+		s.MsgHandler.StartWorkerPool()
+
 		//1.获取一个tcpadd
 		addr, err := net.ResolveTCPAddr(s.IPversion, fmt.Sprintf("%s:%d", s.IP, s.Port))
 		if err != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"zinx/zinxServer/utils"
 	"zinx/zinxServer/ziface"
 )
 
@@ -19,14 +20,16 @@ type Connection struct {
 	//当前链接所绑定的处理业务的方法API
 	// handleAPI ziface.HandFunc
 
-	//告知当前链接已经退出的/停止 channel
-	ExitChan chan bool
-
 	//该链接处理的方法
 	//Router ziface.IRouter
 
 	//消息的管理msgid 对应的业务api
 	MsgHandler ziface.IMsgHandler
+
+	//告知当前链接已经退出的/停止 channel (有reader 告知writer退出)
+	ExitChan chan bool
+	//无缓冲的管道   用于读写协成的通信
+	msgChan chan []byte
 }
 
 //NewConnection 初始化链接模块的方法
@@ -38,6 +41,7 @@ func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandl
 		//handleAPI: callbackAPI,
 		MsgHandler: msgHandler,
 		ExitChan:   make(chan bool, 1),
+		msgChan:    make(chan []byte),
 	}
 	return c
 }
@@ -45,7 +49,7 @@ func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandl
 //StartReader 启动从当前链接读数据的业务
 func (c *Connection) StartReader() {
 	fmt.Println("Reader Goroutione is runing")
-	defer fmt.Println("connId =", c.ConnID, "reader is exit,remote addr is ", c.RemoteAddr().String())
+	defer fmt.Println("connId =", c.ConnID, "[reader is exit],remote addr is ", c.RemoteAddr().String())
 	defer c.Stop()
 
 	for {
@@ -90,10 +94,36 @@ func (c *Connection) StartReader() {
 			msg:  msg,
 		}
 
-		//调用执行注册的路由方法
-		//从路由中，找到注册绑定的conn对应的router
-		go c.MsgHandler.DoMsgHandler(&req)
+		if utils.GlobalObject.WorkerPoolSize > 0 {
+			//已开启了工作池 将消息发送给woker工作池处理即可
+			c.MsgHandler.SendMsgToTaskQueue(&req)
+		} else {
+			//调用执行注册的路由方法
+			//从路由中，找到注册绑定的conn对应的router
+			go c.MsgHandler.DoMsgHandler(&req)
+		}
 
+	}
+}
+
+//StartWriter 开启回写的协成 写消息
+func (c *Connection) StartWriter() {
+	fmt.Println("[writer groutine is running]")
+	defer fmt.Println(c.RemoteAddr().String(), "[conn writer is exit]")
+
+	for {
+		select {
+		case data := <-c.msgChan:
+			//有数据要写给客户端
+			if _, err := c.Conn.Write(data); err != nil {
+				fmt.Println("send data error,", err)
+				return
+			}
+		case <-c.ExitChan:
+			//代表reader已经退出 此时writer也要退出
+			return
+
+		}
 	}
 }
 
@@ -105,6 +135,7 @@ func (c *Connection) Start() {
 	//todo 启动从当前链接写数据的业务
 	go c.StartReader()
 	//todo 启动从当前链接写数据业务
+	go c.StartWriter()
 }
 
 //Stop as
@@ -117,8 +148,13 @@ func (c *Connection) Stop() {
 
 	//关闭socket链接
 	c.Conn.Close()
+
+	//告知writer 关闭
+	c.ExitChan <- true
+
 	//回收资源
 	close(c.ExitChan)
+	close(c.msgChan)
 
 }
 
@@ -129,7 +165,7 @@ func (c *Connection) GetTCPConnection() *net.TCPConn {
 
 //GetConnID 获取当前链接id
 func (c *Connection) GetConnID() uint32 {
-	return c.GetConnID()
+	return c.ConnID
 }
 
 //RemoteAddr 获取远程客户端的状态
@@ -153,8 +189,7 @@ func (c *Connection) SendMsg(msgId uint32, data []byte) error {
 		return errors.New("pack error msg")
 	}
 	//将数据写回客户端
-	if _, err := c.Conn.Write(binaryMsg); err != nil {
-		return errors.New("conn write error")
-	}
+	c.msgChan <- binaryMsg
+
 	return nil
 }
