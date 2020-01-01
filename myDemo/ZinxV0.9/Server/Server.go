@@ -37,8 +37,26 @@ func (t *HelloRouter) Handle(request ziface.IRequest) {
 	}
 }
 
+//DoConnectionBegin 创建链接后的hook
+func DoConnectionBegin(conn ziface.IConnection) {
+	fmt.Println("===>doconnectionBegin is called")
+	if err := conn.SendMsg(202, []byte("do msg begin")); err != nil {
+		fmt.Println(err)
+	}
+
+}
+
+//DoConnectionLost a
+func DoConnectionLost(conn ziface.IConnection) {
+	fmt.Println("=======>do connection lost")
+	fmt.Println("conn id = ", conn.GetConnID(), "is lost")
+}
+
 func main() {
 	s := znet.NewServer("[zinx v0.5]")
+
+	s.SetOnConnStart(DoConnectionBegin)
+	s.SetOnConnStop(DoConnectionLost)
 	//添加路由
 	s.AddRouter(0, &PingRouter{})
 	s.AddRouter(1, &HelloRouter{})

@@ -143,6 +143,10 @@ func (c *Connection) Start() {
 	go c.StartReader()
 	//todo 启动从当前链接写数据业务
 	go c.StartWriter()
+
+	//按照用户传递进来的创建连接时需要处理的业务,执行钩子方法
+	c.TCPServer.CallOnConnStart(c)
+	//==================
 }
 
 //Stop as
@@ -152,7 +156,8 @@ func (c *Connection) Stop() {
 		return
 	}
 	c.isClosed = true
-
+	//如果用户注册了该链接的关闭回调业务,那么在此刻应该显示调用
+	c.TCPServer.CallOnConnStop(c)
 	//关闭socket链接
 	c.Conn.Close()
 
